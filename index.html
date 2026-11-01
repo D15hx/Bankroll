@@ -195,6 +195,39 @@ button.mhead .mname{flex:1}
 button.mhead .mmeta{display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap}
 button.mhead .mmeta b{font-family:var(--num);font-size:19px;font-weight:600;line-height:1.15}
 .mcount{font-size:12.5px;color:var(--muted)}
+
+details.luck{grid-column:1/-1;padding:10px 12px}
+details.luck summary{list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer}
+details.luck summary::-webkit-details-marker{display:none}
+details.luck summary::after{content:"›";color:var(--muted);font-size:20px;line-height:1;transition:transform .15s}
+details.luck[open] summary::after{transform:rotate(90deg)}
+details.luck .l{white-space:nowrap}
+details.luck .lv{margin-left:auto;font-size:13px;color:var(--text-2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.luck .ld{font-size:13px;color:var(--text-2);margin-top:8px;line-height:1.45}
+
+.cal{padding-top:2px}
+.calnav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.calnav button{min-width:38px;min-height:38px;border-radius:50%;padding:0;font-size:22px;line-height:1;background:var(--surface-2);border:0;color:var(--text)}
+.calnav button:disabled{opacity:.3}
+.calt{flex:1;display:flex;flex-direction:column;align-items:center;line-height:1.2}
+.calt b{font-family:var(--num);font-size:20px}
+.calt span{font-size:12.5px}
+.calt span.up,.calt span.down{font-family:var(--num);font-size:17px;font-weight:600}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cwd{text-align:center;font-size:11.5px;color:var(--muted);padding-bottom:2px}
+.cd{all:unset;box-sizing:border-box;aspect-ratio:1/1.05;border-radius:9px;background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0}
+.cd.empty{background:transparent}
+.cd .dn{font-size:11px;color:var(--muted);line-height:1}
+.cd .dv{font-family:var(--num);font-weight:600;font-size:12.5px;line-height:1.05;letter-spacing:-.01em}
+.cd.has{cursor:pointer}
+.cd.pos{background:color-mix(in srgb,var(--pos) calc(var(--a)*100%),var(--surface-2))}
+.cd.neg{background:color-mix(in srgb,var(--neg) calc(var(--a)*100%),var(--surface-2))}
+.cd.strong .dn,.cd.strong .dv{color:#fff}
+.cd.sel{outline:2px solid var(--text);outline-offset:1px}
+.cd:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.caldet{margin-top:10px;font-size:13px;min-height:20px}
+.caldet b.up,.caldet b.down{font-family:var(--num);font-size:15px}
+button.link{all:unset;cursor:pointer;color:var(--accent);font-weight:600;margin-left:4px}
 </style>
 </head>
 <body>
@@ -246,7 +279,7 @@ button.mhead .mmeta b{font-family:var(--num);font-size:19px;font-weight:600;line
     <div class="card">
       <div class="card-head"><h2 id="barTitle">Bénéfice par mois</h2><div class="seg mini" id="granSeg"><button data-g="day">Jour</button><button data-g="week">Sem.</button><button data-g="month">Mois</button><button data-g="year">An</button></div></div>
       <div class="chart-wrap"><div class="chart-scroll" id="barScroll"><div class="chart" id="barChart"></div></div><div class="chart-axis" id="barAxis"></div></div>
-      <div class="legend"><span><i style="background:var(--pos)"></i>Gain</span><span><i style="background:var(--neg)"></i>Perte</span></div>
+      <div class="legend" id="barLegend"><span><i style="background:var(--pos)"></i>Gain</span><span><i style="background:var(--neg)"></i>Perte</span></div>
     </div>
     <div class="card">
       <h2>Répartition</h2>
@@ -630,11 +663,13 @@ function renderDash(){
   const ed=edge(bets);
   $("#kpis").innerHTML=
     `<div class="kpi hero"><div class="l">Bénéfice</div><div class="v ${st.profit>=0?"up":"down"}">${money(st.profit,true)}</div><div class="s">ROI ${pct(st.roi,true)} · ${st.settled.toLocaleString("fr-FR")} paris réglés</div></div>`+
-    `<div class="kpi hero"><div class="l">Chance ou talent ?</div><div class="v" style="font-size:24px">${ed.aw.toLocaleString("fr-FR")} gagnés / ${Math.round(ed.ew).toLocaleString("fr-FR")} attendus</div><div class="s"><b>${edgeLabel(ed.zp)}</b> · bénéfice à ${sig(ed.zp)}, victoires à ${sig(ed.zw)} du hasard (au-delà de 3 σ, la chance n'explique plus le résultat)</div></div>`+
     `<div class="kpi"><div class="l">Mises totales</div><div class="v">${money(st.staked)}</div><div class="s">${st.pending?`${st.pending} en attente · ${money(st.pendingStake)}`:"Aucun pari en attente"}</div></div>`+
     `<div class="kpi"><div class="l">Réussite</div><div class="v">${pct(st.winRate)}</div><div class="s">Cote moyenne ${num(st.avgOdds)}</div></div>`+
     `<div class="kpi"><div class="l">Drawdown max</div><div class="v">${money(-dd)}</div><div class="s">Pire série : ${sk.maxL} perdus · meilleure : ${sk.maxW} gagnés</div></div>`+
-    `<div class="kpi"><div class="l">Mise moyenne</div><div class="v">${money(st.settled?st.staked/st.settled:0)}</div><div class="s">Gain moyen ${money(st.settled?st.profit/st.settled:0,true)} / pari</div></div>`;
+    `<div class="kpi"><div class="l">Mise moyenne</div><div class="v">${money(st.settled?st.staked/st.settled:0)}</div><div class="s">Gain moyen ${money(st.settled?st.profit/st.settled:0,true)} / pari</div></div>`+
+    `<details class="kpi luck" ${S.luckOpen?"open":""}><summary><span class="l">Chance ou talent ?</span><span class="lv">${edgeLabel(ed.zp).split(" :")[0].split(", ")[0]}</span></summary>
+      <div class="ld"><b>${ed.aw.toLocaleString("fr-FR")}</b> paris gagnés pour <b>${Math.round(ed.ew).toLocaleString("fr-FR")}</b> attendus d'après tes cotes.<br>
+      ${edgeLabel(ed.zp)}.<br>Bénéfice à ${sig(ed.zp)} et victoires à ${sig(ed.zw)} de ce que donnerait le hasard. Au-delà de 3 σ, la chance n'explique plus le résultat.</div></details>`;
   drawCum(bets); drawEdge(bets); drawBars(bets); renderBreakdown(bets);
 }
 
@@ -737,6 +772,8 @@ function drawBars(bets){
   let mode="month"; if(days<45) mode="day"; else if(days<120) mode="week";
   if(S.gran) mode=S.gran;
   $$("#granSeg button").forEach(b=>b.classList.toggle("on",b.dataset.g===mode));
+  if(mode==="day"){ $("#barTitle").textContent="Bénéfice par jour"; $("#barAxis").style.display="none"; drawCalendar(set); return; }
+  $("#barLegend").style.display=""; $("#barAxis").style.display="";
   const keyOf=d=>{
     if(mode==="year") return d.slice(0,4);
     if(mode==="month") return d.slice(0,7);
@@ -793,6 +830,45 @@ function drawBars(bets){
   hit.addEventListener("mouseleave",leave);hit.addEventListener("touchend",()=>setTimeout(leave,1500));
   const sc=$("#barScroll"); if(sc) sc.scrollLeft=sc.scrollWidth;
 }
+
+// calendar (daily profit)
+function drawCalendar(set){
+  const el=$("#barChart"); el.style.width="";
+  const byDay=new Map(); for(const b of set){ if(b.lg) continue; const o=byDay.get(b.d)||{v:0,n:0,s:0}; o.v+=pnl(b); o.n++; if(!b.fb) o.s+=+b.s||0; byDay.set(b.d,o); }
+  const months=[...new Set([...byDay.keys()].map(d=>d.slice(0,7)))].sort();
+  if(!months.length){ el.innerHTML=`<div class="empty">Aucun pari réglé sur la période.</div>`; return; }
+  if(!S.calMonth||!months.includes(S.calMonth)) S.calMonth=months[months.length-1];
+  const mk=S.calMonth, [Y,M]=mk.split("-").map(Number);
+  const MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const first=new Date(Y,M-1,1), nd=new Date(Y,M,0).getDate(), off=(first.getDay()+6)%7;
+  let max=0, tot=0, totS=0, nb=0; for(let d=1;d<=nd;d++){ const o=byDay.get(mk+"-"+String(d).padStart(2,"0")); if(o){ max=Math.max(max,Math.abs(o.v)); tot+=o.v; totS+=o.s; nb+=o.n; } }
+  const idx=months.indexOf(mk);
+  let cells=""; for(let i=0;i<off;i++) cells+=`<div class="cd empty"></div>`;
+  for(let d=1;d<=nd;d++){
+    const key=mk+"-"+String(d).padStart(2,"0"), o=byDay.get(key);
+    if(!o){ cells+=`<div class="cd"><span class="dn">${d}</span></div>`; continue; }
+    const a=max?0.18+0.82*Math.min(1,Math.abs(o.v)/max):0.5, up=o.v>=0;
+    const strong=a>0.55;
+    cells+=`<button class="cd has ${up?"pos":"neg"}${strong?" strong":""}${S.calDay===key?" sel":""}" data-day="${key}" style="--a:${a.toFixed(2)}"><span class="dn">${d}</span><span class="dv">${shortMoney(o.v)}</span></button>`;
+  }
+  const sel=S.calDay&&S.calDay.startsWith(mk)?byDay.get(S.calDay):null;
+  el.innerHTML=`<div class="cal">
+    <div class="calnav"><button data-cal="-1" ${idx<=0?"disabled":""} aria-label="Mois précédent">‹</button>
+      <div class="calt"><b>${MOIS[M-1]} ${Y}</b><span class="${tot>=0?"up":"down"}">${money(tot,true)}</span><span class="muted">${nb} paris${totS?` · ROI ${pct(tot/totS,true)}`:""}</span></div>
+      <button data-cal="1" ${idx>=months.length-1?"disabled":""} aria-label="Mois suivant">›</button></div>
+    <div class="calgrid">${["L","M","M","J","V","S","D"].map(x=>`<div class="cwd">${x}</div>`).join("")}${cells}</div>
+    <div class="caldet">${sel?`<b>${fmtDate(S.calDay)}</b> · ${sel.n} pari${sel.n>1?"s":""} · <b class="${sel.v>=0?"up":"down"}">${money(sel.v,true)}</b>${sel.s?` · ROI ${pct(sel.v/sel.s,true)}`:""} <button class="link" data-calgo="${S.calDay}">Voir les paris</button>`:`<span class="muted">Touche un jour pour voir son détail.</span>`}</div>
+  </div>`;
+  $("#barLegend").style.display="none";
+}
+$("#barChart").addEventListener("click",e=>{
+  const nav=e.target.closest("[data-cal]"); const day=e.target.closest("[data-day]"); const go=e.target.closest("[data-calgo]");
+  if(go){ const d=go.dataset.calgo; $("#fPeriod").value="custom"; $("#dFrom").value=d; $("#dTo").value=d; S.open={}; S.open[d.slice(0,7)]=true; syncCustom(); switchView("bets"); return; }
+  if(!nav&&!day) return;
+  if(nav){ const ms=[...new Set(filtered().filter(b=>b.st!=="pending").map(b=>b.d.slice(0,7)))].sort(); const i=ms.indexOf(S.calMonth)+(+nav.dataset.cal); if(ms[i]) S.calMonth=ms[i]; S.calDay=null; }
+  if(day) S.calDay=S.calDay===day.dataset.day?null:day.dataset.day;
+  drawCalendar(filtered().filter(b=>b.st!=="pending"));
+});
 
 // breakdown
 const DIMS=[["mk","Marché"],["bm","Bookmaker"],["odds","Tranche de cote"],["pl","Joueur"],["tg","Tag"],["bk","Bankroll"]];
@@ -1177,6 +1253,7 @@ $("#fStatus").onchange=()=>{S.listLimit=60;renderList();};
 $("#moreBtn").onclick=()=>{S.listLimit+=100;renderList();};
 $("#plSearch").oninput=()=>{clearTimeout(S._pst);S._pst=setTimeout(()=>renderBreakdown(filtered()),150);};
 $("#breakTable").onclick=e=>{const tr=e.target.closest("[data-pl]");if(!tr)return;$("#search").value=tr.dataset.pl;$("#fStatus").value="";S.listLimit=60;switchView("bets");};
+$("#kpis").addEventListener("toggle",e=>{ if(e.target.classList&&e.target.classList.contains("luck")) S.luckOpen=e.target.open; },true);
 $("#granSeg").onclick=e=>{const b=e.target.closest("[data-g]");if(!b)return;S.gran=b.dataset.g;drawBars(filtered());};
 $("#dimSeg").onclick=e=>{const b=e.target.closest("[data-dim]");if(!b)return;S.dim=b.dataset.dim;renderBreakdown(filtered());};
 $("#betList").onclick=e=>{
