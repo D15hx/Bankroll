@@ -14,7 +14,7 @@ Variables d'environnement : SUPA_URL, SUPA_KEY (service_role), TG_TOKEN, AF_KEY.
   bankroll.py summary USER_ID [JOURS]     -> bilan texte des N derniers jours (défaut 1)
   bankroll.py send CHAT TEXTE             -> message Telegram
 """
-import json, os, re, sys, time, unicodedata, urllib.parse, urllib.request
+import json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import date, datetime, timedelta, timezone
 
 SUPA = os.environ.get("SUPA_URL", "").rstrip("/")
@@ -28,6 +28,17 @@ def http(url, headers=None, data=None, timeout=60, method=None):
         return r.read()
 
 def sb(method, path, body=None, prefer=None):
+    for attempt in range(4):
+        try:
+            return _sb(method, path, body, prefer)
+        except urllib.error.HTTPError:
+            raise
+        except Exception:
+            if attempt == 3:
+                raise
+            time.sleep(5 * (attempt + 1))
+
+def _sb(method, path, body=None, prefer=None):
     h = {"apikey": SKEY, "Authorization": "Bearer " + SKEY, "Content-Type": "application/json"}
     if prefer:
         h["Prefer"] = prefer
@@ -79,7 +90,14 @@ def pnl(b):
 # ---------------- Telegram ----------------
 def tg(token, method, **params):
     data = urllib.parse.urlencode(params).encode()
-    return json.loads(http(f"https://api.telegram.org/bot{token}/{method}", data=data))
+    last = None
+    for attempt in range(5):
+        try:
+            return json.loads(http(f"https://api.telegram.org/bot{token}/{method}", data=data, timeout=45))
+        except Exception as e:
+            last = e
+            time.sleep(6 * (attempt + 1))
+    raise last
 
 def tg_fetch(token, offset, outdir):
     os.makedirs(outdir, exist_ok=True)
@@ -102,7 +120,11 @@ def tg_fetch(token, offset, outdir):
             f = tg(token, "getFile", file_id=fid)["result"]
             ext = os.path.splitext(f["file_path"])[1] or ".jpg"
             p = os.path.join(outdir, f"{m['chat']['id']}_{m['message_id']}{ext}")
-            open(p, "wb").write(http(f"https://api.telegram.org/file/bot{token}/{f['file_path']}"))
+            for attempt in range(5):
+                try:
+                    open(p, "wb").write(http(f"https://api.telegram.org/file/bot{token}/{f['file_path']}", timeout=60)); break
+                except Exception:
+                    time.sleep(6 * (attempt + 1))
             item["photos"].append(p)
         out.append(item)
     return {"offset": new_off, "messages": out}
