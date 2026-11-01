@@ -182,6 +182,19 @@ header.top h1{font-family:var(--num);font-weight:700;font-size:26px;letter-spaci
 .bet .r .p{font-family:var(--num);font-size:18px;font-weight:600}
 nav.tabs{border-top:0;box-shadow:0 -1px 0 var(--line)}
 nav.tabs button.on{color:var(--accent)}
+
+.mgroup{border-bottom:1px solid var(--line)}
+.mgroup:last-child{border-bottom:0}
+button.mhead{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 2px;position:static;border:0;background:transparent}
+button.mhead:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.mgroup.open>button.mhead{position:sticky;top:52px;z-index:5;background:var(--surface);border-bottom:2px solid var(--text)}
+button.mhead .mname{flex:1}
+.mchev{font-size:22px;color:var(--muted);transition:transform .15s;line-height:1}
+.mgroup.open .mchev{transform:rotate(90deg)}
+.mbody{padding-bottom:6px}
+button.mhead .mmeta{display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap}
+button.mhead .mmeta b{font-family:var(--num);font-size:19px;font-weight:600;line-height:1.15}
+.mcount{font-size:12.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -843,17 +856,12 @@ function renderList(){
       drawCum(chrono,$("#listChart"),150); } }
   $("#listCount").textContent=bets.length.toLocaleString("fr-FR")+" pari"+(bets.length>1?"s":"")+(pend.length?` · ${pend.length} en attente`:"");
   if(!bets.length){$("#betList").innerHTML=`<div class="empty">${S.bets.length?"Aucun pari ne correspond.":"Aucun pari pour l'instant. Appuie sur + pour en ajouter un, ou importe un CSV dans Réglages."}</div>`;$("#moreBtn").style.display="none";return;}
-  const shown=bets.slice(0,S.listLimit);
   const MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
   const groupOf=b=>b.st==="pending"?"pending":b.d.slice(0,7);
-  const gstats={}; for(const b of bets){ if(b.lg) continue; const g=groupOf(b); const o=gstats[g]||(gstats[g]={n:0,p:0,s:0}); o.n++; o.p+=pnl(b); if(b.st!=="pending"&&!b.fb) o.s+=+b.s||0; }
-  let lastG=null;
-  $("#betList").innerHTML=shown.map(b=>{
-    const g=groupOf(b); let head="";
-    if(g!==lastG){ lastG=g; const o=gstats[g]||{n:0,p:0,s:0};
-      const label=g==="pending"?"En attente":MOIS[+g.slice(5,7)-1]+" "+g.slice(0,4);
-      head=`<div class="mhead"><span class="mname">${label}</span><span class="mmeta">${o.n} pari${o.n>1?"s":""}${g==="pending"?"":` · <b class="${o.p>=0?"up":"down"}">${money(o.p,true)}</b>${o.s?` · ROI ${pct(o.p/o.s,true)}`:""}`}</span></div>`; }
-    return head+(()=>{
+  const groups=new Map(); for(const b of bets){ const g=groupOf(b); if(!groups.has(g)) groups.set(g,[]); groups.get(g).push(b); }
+  S.open=S.open||{};
+  const searching=!!(q||fst);
+  const betRow=b=>{
     const p=pnl(b), cls=b.st==="won"||b.st==="halfwon"?"won":b.st==="lost"||b.st==="halflost"?"lost":b.st==="pending"?"pending":"";
     const title=b.sel||b.ev||"(sans titre)"; const sub=[fmtDate(b.d),b.sel&&b.ev?b.ev:"",b.bm,b.ty].filter(Boolean).join(" · ");
     return `<div class="bet" data-id="${esc(b.id)}"><div class="main"><div class="t">${esc(title)}</div><div class="m">${esc(sub)}</div></div>
@@ -861,9 +869,18 @@ function renderList(){
       ${b.fb?`<span class="chip">Freebet</span> `:""}${b.lg?`<span class="chip">Sélection</span> `:""}${b.auto?`<span class="chip" title="${esc(b.auto)}">auto</span> `:""}<span class="chip ${cls}">${STATUS[b.st]||b.st}</span></div>
       ${b.st==="pending"&&!window.STATIC_RO?`<div class="quick"><button data-q="won" data-id="${esc(b.id)}">✓ Gagné</button><button data-q="lost" data-id="${esc(b.id)}">✗ Perdu</button><button data-q="void" data-id="${esc(b.id)}">↺ Remboursé</button></div>`:""}
       </div>`;
-  })(); }).join("");
-  $("#moreBtn").style.display=bets.length>S.listLimit?"":"none";
-  $("#moreBtn").textContent=`Afficher plus (${(bets.length-S.listLimit).toLocaleString("fr-FR")} restants)`;
+  };
+  let html="";
+  for(const [g,arr] of groups){
+    const real=arr.filter(b=>!b.lg); let pr=0,st=0; for(const b of real){ pr+=pnl(b); if(b.st!=="pending"&&!b.fb) st+=+b.s||0; }
+    const label=g==="pending"?"En attente":MOIS[+g.slice(5,7)-1]+" "+g.slice(0,4);
+    const open=searching||!!S.open[g];
+    html+=`<div class="mgroup${open?" open":""}" data-g="${g}"><button class="mhead" data-mg="${g}" aria-expanded="${open}">
+      <span class="mname">${label}</span><span class="mmeta">${g==="pending"?`<span class="mcount">${real.length} pari${real.length>1?"s":""}</span>`:`<b class="${pr>=0?"up":"down"}">${money(pr,true)}</b><span class="mcount">${real.length} paris${st?` · ROI ${pct(pr/st,true)}`:""}</span>`}</span><span class="mchev">›</span></button>
+      ${open?`<div class="mbody">${arr.map(betRow).join("")}</div>`:""}</div>`;
+  }
+  $("#betList").innerHTML=html;
+  $("#moreBtn").style.display="none";
 }
 
 // ---------- render: settings ----------
@@ -1163,6 +1180,7 @@ $("#breakTable").onclick=e=>{const tr=e.target.closest("[data-pl]");if(!tr)retur
 $("#granSeg").onclick=e=>{const b=e.target.closest("[data-g]");if(!b)return;S.gran=b.dataset.g;drawBars(filtered());};
 $("#dimSeg").onclick=e=>{const b=e.target.closest("[data-dim]");if(!b)return;S.dim=b.dataset.dim;renderBreakdown(filtered());};
 $("#betList").onclick=e=>{
+  const mh=e.target.closest("[data-mg]"); if(mh){ const g=mh.dataset.mg; S.open=S.open||{}; S.open[g]=!S.open[g]; renderList(); return; }
   const q=e.target.closest("[data-q]"); if(q){e.stopPropagation();quickSettle(q.dataset.id,q.dataset.q);return;}
   const row=e.target.closest(".bet"); if(row) openBet(row.dataset.id);
 };
