@@ -522,6 +522,7 @@ function rebuild(){
   arr.sort((a,b)=> (a.d<b.d?-1:a.d>b.d?1:((a.c||0)-(b.c||0))));
   S.bets=arr;
 }
+function partsOf(b){return (b.parts&&b.parts.length>1)?b.parts.map(p=>Object.assign({},b,{bm:p.bm,s:+p.s,o:+p.o,parts:null})):[b];}
 function bankById(id){return S.config.bankrolls.find(b=>b.id===id);}
 function filtered(){
   const fb=$("#fBank").value, fp=$("#fPeriod").value, fbm=$("#fBook").value, ft=$("#fType").value, ftg=$("#fTag").value, fmk=$("#fMarket").value;
@@ -534,12 +535,12 @@ function filtered(){
     if(fb&&b.bk!==fb) return false;
     if(from&&b.d<from) return false;
     if(to&&b.d>to) return false;
-    if(fbm&&(b.bm||"")!==fbm) return false;
+    if(fbm&&!partsOf(b).some(x=>(x.bm||"")===fbm)) return false;
     if(ft&&(b.ty||"")!==ft) return false;
     if(ftg&&!(b.tg||[]).includes(ftg)) return false;
     if(fmk&&market(b)!==fmk) return false;
     return true;
-  });
+  }).flatMap(b=>fbm?partsOf(b).filter(x=>(x.bm||"")===fbm):[b]);
 }
 function stats(bets){
   let staked=0,profit=0,n=0,settled=0,wins=0,decided=0,oddsSum=0,clvSum=0,clvN=0,pending=0,pendingStake=0;
@@ -628,7 +629,7 @@ function fillSelect(sel,label,values,keep){
 }
 function distinct(field){
   const m=new Map();
-  for(const b of S.bets){const v=b[field];if(v) m.set(v,(m.get(v)||0)+1);}
+  for(const b0 of S.bets) for(const b of (field==="bm"?partsOf(b0):[b0])){const v=b[field];if(v) m.set(v,(m.get(v)||0)+1);}
   return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
 }
 function distinctTags(){
@@ -895,6 +896,7 @@ function renderBreakdown(bets){
   for(const b of bets){
     if(S.dim==="tg"){const t=b.tg||[];if(!t.length)add("(sans tag)",b);else t.forEach(x=>add(x,b));}
     else if(S.dim==="odds") add(oddsBucket(b.o),b);
+    else if(S.dim==="bm") partsOf(b).forEach(x=>add(x.bm||"(non renseigné)",x));
     else if(S.dim==="bk") add((bankById(b.bk)||{}).name||"(aucune)",b);
     else if(S.dim==="mk") add(market(b),b);
     else if(S.dim==="pl"){ const pl=playerOf(b); if(pl) add(pl,b); }
